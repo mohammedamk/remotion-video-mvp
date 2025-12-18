@@ -1,16 +1,17 @@
-import { spring } from "remotion";
+import React from "react";
 import {
   AbsoluteFill,
+  Img,
   interpolate,
-  Sequence,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { Logo } from "./HelloWorld/Logo";
-import { Subtitle } from "./HelloWorld/Subtitle";
-import { Title } from "./HelloWorld/Title";
 import { z } from "zod";
 import { zColor } from "@remotion/zod-types";
+
+
+
+const words = ["Hello", "Tal,", "I", "am", "ready", "to", "build."];
 
 export const myCompSchema = z.object({
   titleText: z.string(),
@@ -19,57 +20,94 @@ export const myCompSchema = z.object({
   logoColor2: zColor(),
 });
 
-export const HelloWorld: React.FC<z.infer<typeof myCompSchema>> = ({
-  titleText: propOne,
-  titleColor: propTwo,
-  logoColor1,
-  logoColor2,
-}) => {
+
+export const HelloWorld: React.FC = () => {
   const frame = useCurrentFrame();
-  const { durationInFrames, fps } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
 
-  // Animate from 0 to 1 after 25 frames
-  const logoTranslationProgress = spring({
-    frame: frame - 25,
-    fps,
-    config: {
-      damping: 100,
-    },
-  });
-
-  // Move the logo up by 150 pixels once the transition starts
-  const logoTranslation = interpolate(
-    logoTranslationProgress,
-    [0, 1],
-    [0, -150],
-  );
-
-  // Fade out the animation at the end
-  const opacity = interpolate(
+  // Ken Burns: zoom + pan
+  const scale = interpolate(
     frame,
-    [durationInFrames - 25, durationInFrames - 15],
-    [1, 0],
-    {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
+    [0, durationInFrames],
+    [1, 1.15],
+    { extrapolateRight: "clamp" }
   );
 
-  // A <AbsoluteFill> is just a absolutely positioned <div>!
+  const translateX = interpolate(
+    frame,
+    [0, durationInFrames],
+    [0, -40],
+    { extrapolateRight: "clamp" }
+  );
+
+  const translateY = interpolate(
+    frame,
+    [0, durationInFrames],
+    [0, -30],
+    { extrapolateRight: "clamp" }
+  );
+
   return (
-    <AbsoluteFill style={{ backgroundColor: "white" }}>
-      <AbsoluteFill style={{ opacity }}>
-        <AbsoluteFill style={{ transform: `translateY(${logoTranslation}px)` }}>
-          <Logo logoColor1={logoColor1} logoColor2={logoColor2} />
-        </AbsoluteFill>
-        {/* Sequences can shift the time for its children! */}
-        <Sequence from={35}>
-          <Title titleText={propOne} titleColor={propTwo} />
-        </Sequence>
-        {/* The subtitle will only enter on the 75th frame. */}
-        <Sequence from={75}>
-          <Subtitle />
-        </Sequence>
+    <AbsoluteFill>
+      {/* Background with Ken Burns */}
+      <AbsoluteFill
+        style={{
+          transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+        }}
+      >
+        <Img
+          src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee"
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
+      </AbsoluteFill>
+
+      {/* Word-by-word popping text */}
+      <AbsoluteFill
+        style={{
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 20,
+          fontSize: 70,
+          fontWeight: "bold",
+          color: "white",
+          textShadow: "0 4px 10px rgba(0,0,0,0.6)",
+        }}
+      >
+        {words.map((word, index) => {
+          const startFrame = index * fps * 0.3;
+
+          const opacity = interpolate(
+            frame,
+            [startFrame, startFrame + fps * 0.2],
+            [0, 1],
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+          );
+
+          const popScale = interpolate(
+            frame,
+            [startFrame, startFrame + fps * 0.2],
+            [0.8, 1],
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+          );
+
+          return (
+            <span
+              key={word}
+              style={{
+                opacity,
+                transform: `scale(${popScale})`,
+                display: "inline-block",
+              }}
+            >
+              {word}
+            </span>
+          );
+        })}
       </AbsoluteFill>
     </AbsoluteFill>
   );
